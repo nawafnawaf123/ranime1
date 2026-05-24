@@ -4161,3 +4161,48 @@ body:has(.adminDashboard) {
 .adminPrizeTag b {
   color: #fff;
 }
+
+
+.adminVideoBox {
+  position: relative;
+  margin-top: 12px;
+}
+
+.adminVideoBox video {
+  margin-top: 0;
+}
+
+.videoDownloadBtn {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 900;
+  background: linear-gradient(135deg, rgba(255, 37, 37, 0.96), rgba(80, 0, 0, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 24px rgba(255, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  transition: 0.22s;
+}
+
+.videoDownloadBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 34px rgba(255, 0, 0, 0.55);
+}
+
+@media (max-width: 760px) {
+  .videoDownloadBtn {
+    position: static;
+    width: 100%;
+    margin-top: 10px;
+  }
+}

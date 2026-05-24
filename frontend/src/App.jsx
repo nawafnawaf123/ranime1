@@ -25,6 +25,7 @@ import {
   UserPlus,
   ChevronDown,
   Medal,
+  Download,
 } from "lucide-react";
 import "./style.css";
 import clanVideo1 from "./VID-1.mp4";
@@ -227,6 +228,73 @@ function useRoute() {
 function videoUrl(src) {
   if (!src) return "";
   return src.startsWith("http") ? src : `${API}${src}`;
+}
+
+
+function makeSafeDownloadName(value = "video") {
+  return String(value || "video")
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-")
+    .slice(0, 80) || "video";
+}
+
+function getVideoExtension(src = "") {
+  const cleanPath = String(src || "").split("?")[0].split("#")[0];
+  const match = cleanPath.match(/\.([a-z0-9]{2,5})$/i);
+  return match ? match[1].toLowerCase() : "mp4";
+}
+
+async function downloadVideoFile(src, title = "video") {
+  const href = videoUrl(src);
+  if (!href) return;
+
+  const fileName = `${makeSafeDownloadName(title)}.${getVideoExtension(href)}`;
+
+  try {
+    const response = await fetch(href, { mode: "cors", cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1200);
+  } catch (error) {
+    console.warn("Video download fallback:", error);
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = fileName;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+}
+
+function AdminVideoDownloadButton({ src, title = "video" }) {
+  const href = videoUrl(src);
+  if (!href) return null;
+
+  return (
+    <button
+      type="button"
+      className="videoDownloadBtn"
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        downloadVideoFile(src, title);
+      }}
+    >
+      <Download size={18} />
+      تحميل الفيديو
+    </button>
+  );
 }
 
 function fallbackMainVideos() {
@@ -1816,7 +1884,10 @@ function Admin() {
 
                   <p className="desc">{a.description || "لا يوجد وصف"}</p>
 
-                  <video controls src={a.video_url?.startsWith("http") ? a.video_url : `${API}${a.video_url}`} />
+                  <div className="adminVideoBox">
+                    <video controls src={videoUrl(a.video_url)} />
+                    <AdminVideoDownloadButton src={a.video_url} title={a.player_name || `application-${a.id}`} />
+                  </div>
                 </div>
               ))}
 
@@ -2033,7 +2104,10 @@ function Admin() {
 
                   <p className="desc">{cleanVideoDescription(v) || "لا يوجد وصف"}</p>
                   {getVideoPrize(v) && <div className="adminPrizeTag"><Trophy size={18} /> الجائزة: <b>{getVideoPrize(v)}</b></div>}
-                  <video controls src={videoUrl(v.video_url)} />
+                  <div className="adminVideoBox">
+                    <video controls src={videoUrl(v.video_url)} />
+                    <AdminVideoDownloadButton src={v.video_url} title={v.title || `site-video-${v.id}`} />
+                  </div>
 
                   <div className="adminActionsRow">
                     <button className="ghostBtn" onClick={() => editSiteVideo(v)}>تعديل</button>
@@ -2072,7 +2146,10 @@ function Admin() {
 
                   <p className="desc">{cleanVideoDescription(v) || "لا يوجد وصف"}</p>
                   {getVideoPrize(v) && <div className="adminPrizeTag"><Trophy size={18} /> الجائزة: <b>{getVideoPrize(v)}</b></div>}
-                  <video controls src={videoUrl(v.video_url)} />
+                  <div className="adminVideoBox">
+                    <video controls src={videoUrl(v.video_url)} />
+                    <AdminVideoDownloadButton src={v.video_url} title={v.title || `competition-video-${v.id}`} />
+                  </div>
 
                   <div className="adminActionsRow">
                     <button className="mainBtn" onClick={() => moveToMonthlyWinner(v)}>تحويل للمسابقة الشهرية</button>
@@ -2168,7 +2245,10 @@ function Admin() {
                   </div>
 
                   <p className="desc">{r.description || "لا يوجد وصف"}</p>
-                  <video controls src={videoUrl(r.video_url)} />
+                  <div className="adminVideoBox">
+                    <video controls src={videoUrl(r.video_url)} />
+                    <AdminVideoDownloadButton src={r.video_url} title={r.title || `design-request-${r.id}`} />
+                  </div>
 
                   <div className="adminActionsRow">
                     {r.status === "pending" && (
@@ -2210,6 +2290,7 @@ function Admin() {
                   <div>
                     <b>{winnerModal.video.title || "فيديو مسابقات"}</b>
                     <span>{cleanVideoDescription(winnerModal.video) || "بدون وصف"}</span>
+                    <AdminVideoDownloadButton src={winnerModal.video.video_url} title={winnerModal.video.title || "monthly-winner-video"} />
                   </div>
                 </div>
               )}
