@@ -4173,12 +4173,24 @@ body:has(.adminDashboard) {
 }
 
 .videoDownloadBox {
-  position: absolute;
-  left: 14px;
-  bottom: 14px;
-  z-index: 8;
-  width: min(270px, calc(100% - 28px));
+  position: static;
+  width: 100%;
+  min-width: 220px;
   pointer-events: auto;
+}
+
+
+.adminActionsRow .videoDownloadBox {
+  flex: 1 1 240px;
+  margin: 0;
+}
+
+.adminActionsRow .videoDownloadBtn {
+  min-height: 48px;
+}
+
+.adminVideoBox .videoDownloadBox {
+  margin-top: 12px;
 }
 
 .videoDownloadBtn {
@@ -4292,9 +4304,9 @@ body:has(.adminDashboard) {
 }
 
 @media (max-width: 760px) {
+  .adminActionsRow .videoDownloadBox,
   .videoDownloadBox {
-    position: static;
     width: 100%;
-    margin-top: 10px;
+    min-width: 100%;
   }
 }

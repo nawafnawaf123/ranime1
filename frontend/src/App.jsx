@@ -2008,6 +2008,9 @@ function Admin() {
 
                   <div className="adminVideoBox">
                     <video controls src={videoUrl(a.video_url)} />
+                  </div>
+
+                  <div className="adminActionsRow">
                     <AdminVideoDownloadButton src={a.video_url} title={a.player_name || `application-${a.id}`} />
                   </div>
                 </div>
@@ -2228,10 +2231,10 @@ function Admin() {
                   {getVideoPrize(v) && <div className="adminPrizeTag"><Trophy size={18} /> الجائزة: <b>{getVideoPrize(v)}</b></div>}
                   <div className="adminVideoBox">
                     <video controls src={videoUrl(v.video_url)} />
-                    <AdminVideoDownloadButton src={v.video_url} title={v.title || `site-video-${v.id}`} />
                   </div>
 
                   <div className="adminActionsRow">
+                    <AdminVideoDownloadButton src={v.video_url} title={v.title || `site-video-${v.id}`} />
                     <button className="ghostBtn" onClick={() => editSiteVideo(v)}>تعديل</button>
                     <button className="dangerBtn" onClick={() => deleteSiteVideo(v.id)}>{v.slot >= 99 ? "حذف التصميم" : "حذف"}</button>
                   </div>
@@ -2270,10 +2273,10 @@ function Admin() {
                   {getVideoPrize(v) && <div className="adminPrizeTag"><Trophy size={18} /> الجائزة: <b>{getVideoPrize(v)}</b></div>}
                   <div className="adminVideoBox">
                     <video controls src={videoUrl(v.video_url)} />
-                    <AdminVideoDownloadButton src={v.video_url} title={v.title || `competition-video-${v.id}`} />
                   </div>
 
                   <div className="adminActionsRow">
+                    <AdminVideoDownloadButton src={v.video_url} title={v.title || `competition-video-${v.id}`} />
                     <button className="mainBtn" onClick={() => moveToMonthlyWinner(v)}>تحويل للمسابقة الشهرية</button>
                     <button className="ghostBtn" onClick={() => editSiteVideo(v)}>تعديل</button>
                     <button className="dangerBtn" onClick={() => deleteSiteVideo(v.id)}>حذف الفيديو</button>
@@ -2369,10 +2372,10 @@ function Admin() {
                   <p className="desc">{r.description || "لا يوجد وصف"}</p>
                   <div className="adminVideoBox">
                     <video controls src={videoUrl(r.video_url)} />
-                    <AdminVideoDownloadButton src={r.video_url} title={r.title || `design-request-${r.id}`} />
                   </div>
 
                   <div className="adminActionsRow">
+                    <AdminVideoDownloadButton src={r.video_url} title={r.title || `design-request-${r.id}`} />
                     {r.status === "pending" && (
                       <>
                         <button className="mainBtn" onClick={() => reviewVideoRequest(r.id, "approve")}>قبول ونشر</button>
