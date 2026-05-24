@@ -4172,35 +4172,127 @@ body:has(.adminDashboard) {
   margin-top: 0;
 }
 
-.videoDownloadBtn {
+.videoDownloadBox {
   position: absolute;
   left: 14px;
   bottom: 14px;
-  z-index: 3;
+  z-index: 8;
+  width: min(270px, calc(100% - 28px));
+  pointer-events: auto;
+}
+
+.videoDownloadBtn {
+  width: 100%;
+  min-height: 46px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 42px;
   padding: 10px 16px;
   border-radius: 999px;
   color: #fff;
   text-decoration: none;
   font-weight: 900;
-  background: linear-gradient(135deg, rgba(255, 37, 37, 0.96), rgba(80, 0, 0, 0.96));
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 0 24px rgba(255, 0, 0, 0.35);
+  cursor: pointer;
+  background: linear-gradient(135deg, rgba(255, 37, 37, 0.98), rgba(80, 0, 0, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 24px rgba(255, 0, 0, 0.45);
   backdrop-filter: blur(10px);
   transition: 0.22s;
 }
 
 .videoDownloadBtn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 0 34px rgba(255, 0, 0, 0.55);
+  box-shadow: 0 0 34px rgba(255, 0, 0, 0.65);
+}
+
+.videoDownloadBtn:disabled {
+  cursor: wait;
+  opacity: 0.98;
+  transform: none;
+}
+
+.videoDownloadBox.isDownloading .videoDownloadBtn {
+  background: linear-gradient(135deg, rgba(255, 190, 40, 0.98), rgba(160, 35, 0, 0.98));
+  box-shadow: 0 0 34px rgba(255, 190, 40, 0.38);
+}
+
+.videoDownloadBox.isDone .videoDownloadBtn {
+  background: linear-gradient(135deg, rgba(0, 190, 90, 0.98), rgba(0, 90, 45, 0.98));
+  box-shadow: 0 0 34px rgba(0, 255, 120, 0.28);
+}
+
+.downloadProgressPanel {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(5, 0, 0, 0.9);
+  border: 1px solid rgba(255, 70, 70, 0.35);
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+}
+
+.downloadProgressTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 7px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.downloadProgressTop b {
+  color: #ffd7d7;
+  direction: ltr;
+}
+
+.downloadProgressTrack {
+  position: relative;
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.13);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.downloadProgressFill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff2020, #ffca3a, #ffffff);
+  box-shadow: 0 0 18px rgba(255, 0, 0, 0.65);
+  transition: width 0.18s ease;
+}
+
+.downloadProgressTrack.indeterminate .downloadProgressFill {
+  width: 42%;
+  animation: downloadIndeterminate 1s infinite ease-in-out;
+}
+
+.downloadProgressPanel small {
+  display: block;
+  margin-top: 7px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+  direction: ltr;
+  text-align: left;
+}
+
+@keyframes downloadIndeterminate {
+  0% { transform: translateX(140%); }
+  100% { transform: translateX(-260%); }
+}
+
+.winnerPreview .videoDownloadBox {
+  position: static;
+  width: 100%;
+  margin-top: 10px;
 }
 
 @media (max-width: 760px) {
-  .videoDownloadBtn {
+  .videoDownloadBox {
     position: static;
     width: 100%;
     margin-top: 10px;

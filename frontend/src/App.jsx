@@ -245,17 +245,57 @@ function getVideoExtension(src = "") {
   return match ? match[1].toLowerCase() : "mp4";
 }
 
-async function downloadVideoFile(src, title = "video") {
+async function downloadVideoFile(src, title = "video", onProgress = () => {}) {
   const href = videoUrl(src);
   if (!href) return;
 
   const fileName = `${makeSafeDownloadName(title)}.${getVideoExtension(href)}`;
 
   try {
+    onProgress({ status: "downloading", percent: 0, loaded: 0, total: 0 });
+
     const response = await fetch(href, { mode: "cors", cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    const blob = await response.blob();
+    const total = Number(response.headers.get("content-length") || 0);
+
+    if (!response.body) {
+      const blob = await response.blob();
+      onProgress({ status: "downloading", percent: 100, loaded: blob.size, total: blob.size });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1200);
+      onProgress({ status: "done", percent: 100, loaded: blob.size, total: blob.size });
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const chunks = [];
+    let loaded = 0;
+    let lastPercent = -1;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      chunks.push(value);
+      loaded += value.length;
+
+      const percent = total ? Math.min(99, Math.round((loaded / total) * 100)) : 0;
+      if (percent !== lastPercent) {
+        lastPercent = percent;
+        onProgress({ status: "downloading", percent, loaded, total });
+      }
+    }
+
+    const blob = new Blob(chunks);
+    onProgress({ status: "preparing", percent: 100, loaded: blob.size, total: total || blob.size });
+
     const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = objectUrl;
@@ -263,9 +303,13 @@ async function downloadVideoFile(src, title = "video") {
     document.body.appendChild(link);
     link.click();
     link.remove();
+
     setTimeout(() => URL.revokeObjectURL(objectUrl), 1200);
+    onProgress({ status: "done", percent: 100, loaded: blob.size, total: total || blob.size });
   } catch (error) {
     console.warn("Video download fallback:", error);
+    onProgress({ status: "fallback", percent: 0, loaded: 0, total: 0 });
+
     const link = document.createElement("a");
     link.href = href;
     link.download = fileName;
@@ -274,26 +318,104 @@ async function downloadVideoFile(src, title = "video") {
     document.body.appendChild(link);
     link.click();
     link.remove();
+
+    setTimeout(() => {
+      onProgress({ status: "done", percent: 100, loaded: 0, total: 0 });
+    }, 900);
   }
+}
+
+function formatDownloadSize(bytes = 0) {
+  const value = Number(bytes || 0);
+  if (!value) return "";
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function AdminVideoDownloadButton({ src, title = "video" }) {
   const href = videoUrl(src);
+  const [downloadState, setDownloadState] = useState({
+    status: "idle",
+    percent: 0,
+    loaded: 0,
+    total: 0,
+  });
+
   if (!href) return null;
 
+  const isDownloading = ["downloading", "preparing", "fallback"].includes(downloadState.status);
+  const isDone = downloadState.status === "done";
+  const percent = Math.max(0, Math.min(100, Number(downloadState.percent || 0)));
+  const hasKnownProgress = downloadState.total > 0;
+  const buttonText = isDownloading
+    ? downloadState.status === "preparing"
+      ? "جاري تجهيز الملف..."
+      : hasKnownProgress
+        ? `جاري التحميل ${percent}%`
+        : "جاري التحميل..."
+    : isDone
+      ? "تم تحميل الفيديو"
+      : "تحميل الفيديو";
+
+  async function handleDownload(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (isDownloading) return;
+
+    setDownloadState({ status: "downloading", percent: 0, loaded: 0, total: 0 });
+
+    await downloadVideoFile(src, title, (nextState) => {
+      setDownloadState((previous) => ({ ...previous, ...nextState }));
+    });
+
+    setTimeout(() => {
+      setDownloadState({ status: "idle", percent: 0, loaded: 0, total: 0 });
+    }, 2200);
+  }
+
   return (
-    <button
-      type="button"
-      className="videoDownloadBtn"
-      onClick={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        downloadVideoFile(src, title);
-      }}
-    >
-      <Download size={18} />
-      تحميل الفيديو
-    </button>
+    <div className={`videoDownloadBox ${isDownloading ? "isDownloading" : ""} ${isDone ? "isDone" : ""}`}>
+      <button
+        type="button"
+        className="videoDownloadBtn"
+        onClick={handleDownload}
+        disabled={isDownloading}
+        aria-busy={isDownloading}
+      >
+        <Download size={18} />
+        {buttonText}
+      </button>
+
+      {(isDownloading || isDone) && (
+        <div className="downloadProgressPanel">
+          <div className="downloadProgressTop">
+            <span>
+              {isDone
+                ? "اكتمل التحميل"
+                : downloadState.status === "preparing"
+                  ? "جاري تجهيز الفيديو"
+                  : "جاري تحميل الفيديو"}
+            </span>
+            <b>{hasKnownProgress || isDone ? `${percent}%` : "..."}</b>
+          </div>
+
+          <div className={`downloadProgressTrack ${hasKnownProgress || isDone ? "" : "indeterminate"}`}>
+            <div
+              className="downloadProgressFill"
+              style={{ width: hasKnownProgress || isDone ? `${percent}%` : "42%" }}
+            />
+          </div>
+
+          {downloadState.loaded > 0 && (
+            <small>
+              {formatDownloadSize(downloadState.loaded)}
+              {downloadState.total ? ` / ${formatDownloadSize(downloadState.total)}` : ""}
+            </small>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
