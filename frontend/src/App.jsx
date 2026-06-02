@@ -33,7 +33,7 @@ import clanVideo2 from "./VID-2.mp4";
 import clanVideo3 from "./VID-3.mp4";
 import logo from "./RNM.png";
 
-const API = (import.meta.env.VITE_API_URL || "https://ranime-clan-site.onrender.com").replace(/\/+$/, "");
+const API = (import.meta.env.VITE_API_URL || "https://ranime1.onrender.com").replace(/\/+$/, "");
 const MAX_CLAN_VIDEOS = 10;
 const REQUEST_TIMEOUT_MS = 45000;
 const MAX_REQUEST_RETRIES = 5;
