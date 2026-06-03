@@ -1337,7 +1337,7 @@ function TeamsSection() {
     <section className="section teamsSection" id="teams">
       <div className="sectionHead">
         <span>RNM TEAMS</span>
-        <h2>قسم الفرق</h2>
+        <h2>قسم الفرق السكرمات</h2>
         <p>
           سجّل فريقك باسم خاص، وبعدها أي لاعب يدخل الصفحة يقدر يشوف الفريق وينضم له مباشرة.
           اسم الفريق لا يمكن يتكرر داخل النظام.
