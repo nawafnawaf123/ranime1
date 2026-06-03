@@ -26,6 +26,7 @@ import {
   ChevronDown,
   Medal,
   Download,
+  Palette,
 } from "lucide-react";
 import "./style.css";
 import clanVideo1 from "./VID-1.mp4";
@@ -431,6 +432,36 @@ function normalizeAssetUrl(src) {
   if (!src) return "";
   return String(src).startsWith("http") ? src : `${API}${src}`;
 }
+function isValidHexColor(value = "") {
+  return /^#[0-9a-f]{6}$/i.test(String(value || "").trim());
+}
+
+function hexToRgbString(hex = "#ff0000") {
+  const clean = isValidHexColor(hex) ? hex.trim() : "#ff0000";
+  const value = clean.replace("#", "");
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `${r}, ${g}, ${b}`;
+}
+
+function darkenHexColor(hex = "#ff0000", amount = 0.55) {
+  const clean = isValidHexColor(hex) ? hex.trim() : "#ff0000";
+  const value = clean.replace("#", "");
+  const r = Math.max(0, Math.round(parseInt(value.slice(0, 2), 16) * amount));
+  const g = Math.max(0, Math.round(parseInt(value.slice(2, 4), 16) * amount));
+  const b = Math.max(0, Math.round(parseInt(value.slice(4, 6), 16) * amount));
+  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function applySiteThemeColor(color = "#ff0000") {
+  const safeColor = isValidHexColor(color) ? color.trim() : "#ff0000";
+  document.documentElement.style.setProperty("--theme-color", safeColor);
+  document.documentElement.style.setProperty("--theme-rgb", hexToRgbString(safeColor));
+  document.documentElement.style.setProperty("--theme-dark", darkenHexColor(safeColor, 0.45));
+  document.documentElement.style.setProperty("--theme-darker", darkenHexColor(safeColor, 0.22));
+}
+
 
 const PRIZE_MARKER = "__RNM_PRIZE__:";
 
@@ -482,19 +513,25 @@ function useSiteLogo() {
       try {
         const json = await fetchJson("/api/site-settings");
         const nextLogo = normalizeAssetUrl(json.logo_url || json.site_logo_url || "");
+        const nextColor = json.theme_color || json.site_theme_color || "#ff0000";
+        applySiteThemeColor(nextColor);
         if (alive) setSiteLogoUrl(nextLogo || logo);
       } catch {
+        applySiteThemeColor("#ff0000");
         if (alive) setSiteLogoUrl(logo);
       }
     }
 
     loadSiteLogo();
-    const onUpdated = (event) => setSiteLogoUrl(normalizeAssetUrl(event.detail?.logoUrl || "") || logo);
-    window.addEventListener("site-logo-updated", onUpdated);
+    const onLogoUpdated = (event) => setSiteLogoUrl(normalizeAssetUrl(event.detail?.logoUrl || "") || logo);
+    const onThemeUpdated = (event) => applySiteThemeColor(event.detail?.themeColor || "#ff0000");
+    window.addEventListener("site-logo-updated", onLogoUpdated);
+    window.addEventListener("site-theme-updated", onThemeUpdated);
 
     return () => {
       alive = false;
-      window.removeEventListener("site-logo-updated", onUpdated);
+      window.removeEventListener("site-logo-updated", onLogoUpdated);
+      window.removeEventListener("site-theme-updated", onThemeUpdated);
     };
   }, []);
 
@@ -540,8 +577,8 @@ function BrandAssets({ logoUrl = logo }) {
         height: 56px;
         border-radius: 50%;
         object-fit: cover;
-        border: 1px solid rgba(255, 0, 0, 0.35);
-        box-shadow: 0 0 25px rgba(255, 0, 0, 0.45), inset 0 0 18px rgba(255, 0, 0, 0.2);
+        border: 1px solid rgba(var(--theme-rgb), 0.35);
+        box-shadow: 0 0 25px rgba(var(--theme-rgb), 0.45), inset 0 0 18px rgba(var(--theme-rgb), 0.2);
         background: #050505;
       }
 
@@ -555,7 +592,7 @@ function BrandAssets({ logoUrl = logo }) {
       .heroLogoMain {
         width: min(520px, 92vw);
         max-height: 560px;
-        filter: drop-shadow(0 0 35px rgba(255, 0, 0, 0.6));
+        filter: drop-shadow(0 0 35px rgba(var(--theme-rgb), 0.6));
         animation: floatLogo 4s ease-in-out infinite;
       }
 
@@ -575,11 +612,11 @@ function BrandAssets({ logoUrl = logo }) {
         width: min(520px, 78vw);
         height: min(520px, 78vw);
         border-radius: 50%;
-        border: 1px solid rgba(255, 0, 0, 0.22);
+        border: 1px solid rgba(var(--theme-rgb), 0.22);
         background:
-          radial-gradient(circle, rgba(255,0,0,0.32), transparent 58%),
-          linear-gradient(135deg, rgba(255,0,0,0.16), rgba(0,0,0,0.08));
-        box-shadow: 0 0 90px rgba(255,0,0,0.24), inset 0 0 75px rgba(255,0,0,0.16);
+          radial-gradient(circle, rgba(var(--theme-rgb),0.32), transparent 58%),
+          linear-gradient(135deg, rgba(var(--theme-rgb),0.16), rgba(0,0,0,0.08));
+        box-shadow: 0 0 90px rgba(var(--theme-rgb),0.24), inset 0 0 75px rgba(var(--theme-rgb),0.16);
         animation: floatLogo 4s ease-in-out infinite;
         z-index: -1;
       }
@@ -590,10 +627,10 @@ function BrandAssets({ logoUrl = logo }) {
         border-radius: 50%;
         display: grid;
         place-items: center;
-        color: #ff1515;
-        border: 1px solid rgba(255,0,0,0.4);
+        color: var(--theme-color);
+        border: 1px solid rgba(var(--theme-rgb),0.4);
         background: rgba(5,0,0,0.72);
-        box-shadow: 0 0 60px rgba(255,0,0,0.32), inset 0 0 38px rgba(255,0,0,0.18);
+        box-shadow: 0 0 60px rgba(var(--theme-rgb),0.32), inset 0 0 38px rgba(var(--theme-rgb),0.18);
         backdrop-filter: blur(10px);
       }
 
@@ -602,8 +639,8 @@ function BrandAssets({ logoUrl = logo }) {
         width: 360px;
         height: 4px;
         border-radius: 999px;
-        background: linear-gradient(90deg, transparent, rgba(255,0,0,0.95), transparent);
-        box-shadow: 0 0 28px rgba(255,0,0,0.75);
+        background: linear-gradient(90deg, transparent, rgba(var(--theme-rgb),0.95), transparent);
+        box-shadow: 0 0 28px rgba(var(--theme-rgb),0.75);
       }
 
       .bladeOne { transform: rotate(35deg); }
@@ -614,8 +651,8 @@ function BrandAssets({ logoUrl = logo }) {
         height: 54px;
         border-radius: 16px;
         object-fit: cover;
-        border: 1px solid rgba(255,0,0,0.4);
-        box-shadow: 0 0 28px rgba(255,0,0,0.45);
+        border: 1px solid rgba(var(--theme-rgb),0.4);
+        box-shadow: 0 0 28px rgba(var(--theme-rgb),0.45);
         background: #050505;
       }
 
@@ -625,7 +662,7 @@ function BrandAssets({ logoUrl = logo }) {
         border-radius: 50%;
         object-fit: cover;
         display: block;
-        filter: drop-shadow(0 0 22px rgba(255, 0, 0, 0.55));
+        filter: drop-shadow(0 0 22px rgba(var(--theme-rgb), 0.55));
       }
 
       .adminSideLogoImg {
@@ -633,7 +670,7 @@ function BrandAssets({ logoUrl = logo }) {
         height: 96px;
         object-fit: contain;
         margin-bottom: 12px;
-        filter: drop-shadow(0 0 24px rgba(255, 0, 0, 0.5));
+        filter: drop-shadow(0 0 24px rgba(var(--theme-rgb), 0.5));
       }
 
       @media (max-width: 700px) {
@@ -1165,6 +1202,7 @@ function TeamsSection() {
   const [teamForm, setTeamForm] = useState({
     team_name: "",
     leader_name: "",
+    max_members: "4",
     contact: "",
     description: "",
   });
@@ -1222,8 +1260,14 @@ function TeamsSection() {
       return;
     }
 
+    const maxMembers = Math.max(1, Math.min(100, Number(teamForm.max_members || 4)));
+    if (!Number.isFinite(maxMembers)) {
+      setTeamMessage("اكتب عدد أعضاء صحيح");
+      return;
+    }
+
     const data = new FormData();
-    Object.entries(teamForm).forEach(([key, value]) => data.append(key, value));
+    Object.entries({ ...teamForm, max_members: String(maxMembers) }).forEach(([key, value]) => data.append(key, value));
 
     setCreatingTeam(true);
     setTeamMessage("جاري إنشاء الفريق...");
@@ -1232,7 +1276,7 @@ function TeamsSection() {
       const json = await postFormJson("/api/teams", data);
       setTeamMessage(json.message || "تم إنشاء الفريق بنجاح");
       if (json.success) {
-        setTeamForm({ team_name: "", leader_name: "", contact: "", description: "" });
+        setTeamForm({ team_name: "", leader_name: "", max_members: "4", contact: "", description: "" });
         await loadTeams({ silent: true });
       }
     } catch (error) {
@@ -1247,6 +1291,7 @@ function TeamsSection() {
       ...previous,
       [teamId]: {
         player_name: "",
+        nickname: "",
         pubg_id: "",
         contact: "",
         ...(previous[teamId] || {}),
@@ -1266,6 +1311,7 @@ function TeamsSection() {
 
     const data = new FormData();
     data.append("player_name", playerName);
+    data.append("nickname", form.nickname || "");
     data.append("pubg_id", form.pubg_id || "");
     data.append("contact", form.contact || "");
 
@@ -1276,7 +1322,7 @@ function TeamsSection() {
       const json = await postFormJson(`/api/teams/${teamId}/join`, data);
       setTeamMessage(json.message || "تم الانضمام للفريق");
       if (json.success) {
-        setJoinForms((previous) => ({ ...previous, [teamId]: { player_name: "", pubg_id: "", contact: "" } }));
+        setJoinForms((previous) => ({ ...previous, [teamId]: { player_name: "", nickname: "", pubg_id: "", contact: "" } }));
         setOpenJoinTeamId(null);
         await loadTeams({ silent: true });
       }
@@ -1321,6 +1367,17 @@ function TeamsSection() {
               value={teamForm.leader_name}
               onChange={(e) => setTeamForm({ ...teamForm, leader_name: e.target.value })}
               placeholder="اسم قائد الفريق"
+            />
+          </div>
+
+          <div className="inputGroup">
+            <input
+              type="number"
+              min="1"
+              max="100"
+              value={teamForm.max_members}
+              onChange={(e) => setTeamForm({ ...teamForm, max_members: e.target.value })}
+              placeholder="حد عدد الأعضاء"
             />
           </div>
 
@@ -1386,16 +1443,19 @@ function TeamsSection() {
                     {team.description && <p className="teamDesc">{team.description}</p>}
 
                     <div className="teamMetaGrid">
-                      <div><Users size={17} /><b>{team.members_count || 0}</b><span>عضو</span></div>
+                      <div><Users size={17} /><b>{team.members_count || 0}/{team.max_members || "∞"}</b><span>الأعضاء</span></div>
                       <div><Trophy size={17} /><b>{team.contact ? "متاح" : "—"}</b><span>تواصل</span></div>
                     </div>
 
                     {team.members?.length > 0 && (
-                      <div className="teamMembersPreview">
-                        {team.members.slice(0, 5).map((member) => (
-                          <span key={member.id}>{member.player_name}</span>
+                      <div className="teamMembersPreview teamMembersFullList">
+                        {team.members.map((member) => (
+                          <span key={member.id} title={member.pubg_id || member.contact || ""}>
+                            {member.player_name}
+                            {member.nickname ? <small> | {member.nickname}</small> : null}
+                            {member.is_leader ? <b> قائد</b> : null}
+                          </span>
                         ))}
-                        {team.members.length > 5 && <span>+{team.members.length - 5}</span>}
                       </div>
                     )}
 
@@ -1403,8 +1463,9 @@ function TeamsSection() {
                       type="button"
                       className="ghostBtn teamJoinToggle"
                       onClick={() => setOpenJoinTeamId(isOpen ? null : team.id)}
+                      disabled={Number(team.max_members || 0) > 0 && Number(team.members_count || 0) >= Number(team.max_members || 0)}
                     >
-                      {isOpen ? "إغلاق" : "انضم للفريق"}
+                      {Number(team.max_members || 0) > 0 && Number(team.members_count || 0) >= Number(team.max_members || 0) ? "الفريق مكتمل" : isOpen ? "إغلاق" : "انضم للفريق"}
                     </button>
 
                     {isOpen && (
@@ -1413,6 +1474,11 @@ function TeamsSection() {
                           value={joinForm.player_name || ""}
                           onChange={(e) => updateJoinForm(team.id, "player_name", e.target.value)}
                           placeholder="اسم اللاعب"
+                        />
+                        <input
+                          value={joinForm.nickname || ""}
+                          onChange={(e) => updateJoinForm(team.id, "nickname", e.target.value)}
+                          placeholder="اللقب داخل اللعبة"
                         />
                         <input
                           value={joinForm.pubg_id || ""}
@@ -1648,6 +1714,7 @@ function Admin() {
   const [siteVideos, setSiteVideos] = useState([]);
   const [videoRequests, setVideoRequests] = useState([]);
   const [clanMembers, setClanMembers] = useState([]);
+  const [adminTeams, setAdminTeams] = useState([]);
   const [password, setPassword] = useState("");
   const [allowed, setAllowed] = useState(false);
   const [search, setSearch] = useState("");
@@ -1678,6 +1745,9 @@ function Admin() {
   const [logoFile, setLogoFile] = useState(null);
   const [logoMessage, setLogoMessage] = useState("");
   const [savingLogo, setSavingLogo] = useState(false);
+  const [themeColor, setThemeColor] = useState("#ff0000");
+  const [themeMessage, setThemeMessage] = useState("");
+  const [savingTheme, setSavingTheme] = useState(false);
   const [adminApiStatus, setAdminApiStatus] = useState("");
   const [winnerModal, setWinnerModal] = useState({
     open: false,
@@ -1737,6 +1807,8 @@ function Admin() {
       loadSiteVideos(),
       loadVideoRequests(),
       loadClanMembers(),
+      loadTeamsAdmin(),
+      loadSiteSettingsAdmin(),
     ]);
 
     const hasFail = results.some((item) => item.status === "rejected" || item.value === false);
@@ -1757,6 +1829,23 @@ function Admin() {
 
   async function loadClanMembers() {
     return loadCachedAdminArray("rnm_cache_clan_members", "/api/clan-members", setClanMembers, "أعضاء الكلان");
+  }
+
+  async function loadTeamsAdmin() {
+    return loadCachedAdminArray("rnm_cache_teams", "/api/teams", setAdminTeams, "الفرق");
+  }
+
+  async function loadSiteSettingsAdmin() {
+    try {
+      const json = await fetchJson("/api/site-settings");
+      const nextColor = json.theme_color || "#ff0000";
+      setThemeColor(nextColor);
+      applySiteThemeColor(nextColor);
+      return true;
+    } catch (error) {
+      console.error("Site settings load failed:", error);
+      return false;
+    }
   }
 
   async function addManualClanMember(e) {
@@ -1824,6 +1913,53 @@ function Admin() {
       setLogoMessage("حدث خطأ أثناء تغيير اللوجو");
     } finally {
       setSavingLogo(false);
+    }
+  }
+
+  async function saveSiteTheme(e) {
+    e.preventDefault();
+
+    if (!isValidHexColor(themeColor)) {
+      setThemeMessage("اختار لون صحيح");
+      return;
+    }
+
+    const data = new FormData();
+    data.append("theme_color", themeColor);
+
+    setSavingTheme(true);
+    setThemeMessage("جاري حفظ لون الموقع...");
+
+    try {
+      const json = await postFormJson("/api/site-theme", data);
+      if (json.success === false) {
+        setThemeMessage(json.message || json.detail || "فشل حفظ اللون");
+        return;
+      }
+      const nextColor = json.theme_color || themeColor;
+      setThemeColor(nextColor);
+      applySiteThemeColor(nextColor);
+      window.dispatchEvent(new CustomEvent("site-theme-updated", { detail: { themeColor: nextColor } }));
+      setThemeMessage(json.message || "تم تغيير لون الموقع للجميع");
+    } catch {
+      setThemeMessage("حدث خطأ أثناء حفظ لون الموقع");
+    } finally {
+      setSavingTheme(false);
+    }
+  }
+
+  async function deleteAdminTeam(teamId) {
+    if (!window.confirm("هل تريد حذف هذا الفريق من الموقع؟")) return;
+    try {
+      const json = await deleteJson(`/api/teams/${teamId}`);
+      if (json.success === false) {
+        alert(json.message || json.detail || "فشل حذف الفريق");
+        return;
+      }
+      await loadTeamsAdmin();
+      alert(json.message || "تم حذف الفريق");
+    } catch {
+      alert("حدث خطأ أثناء حذف الفريق");
     }
   }
 
@@ -2216,7 +2352,8 @@ function Admin() {
         <button className={adminTab === "videos" ? "active" : ""} onClick={() => setAdminTab("videos")}>إدارة فيديوهات الموقع</button>
         <button className={adminTab === "competitionVideos" ? "active" : ""} onClick={() => setAdminTab("competitionVideos")}>فيديوهات المسابقات</button>
         <button className={adminTab === "requests" ? "active" : ""} onClick={() => setAdminTab("requests")}>طلبات التصاميم</button>
-        <button className={adminTab === "branding" ? "active" : ""} onClick={() => setAdminTab("branding")}>لوجو الموقع</button>
+        <button className={adminTab === "teams" ? "active" : ""} onClick={() => setAdminTab("teams")}>الفرق</button>
+        <button className={adminTab === "branding" ? "active" : ""} onClick={() => setAdminTab("branding")}>الإعدادات</button>
         <button className="softAdminBtn" onClick={loadAdminData}>تحديث الكل</button>
         <button className="softAdminBtn" onClick={() => go("/")}>فتح الموقع</button>
 
@@ -2227,6 +2364,10 @@ function Admin() {
         <div className="sideStat">
           <b>{clanMembers.length}</b>
           <span>أعضاء ظاهرين في هرم الكلان</span>
+        </div>
+        <div className="sideStat">
+          <b>{adminTeams.length}</b>
+          <span>فرق مسجلة</span>
         </div>
         <div className="sideStat">
           <b>{videoRequests.filter((r) => r.status === "pending").length}</b>
@@ -2591,12 +2732,67 @@ function Admin() {
           </>
         )}
 
+
+        {adminTab === "teams" && (
+          <>
+            <div className="adminTop">
+              <div>
+                <h1>إدارة الفرق</h1>
+                <p>هنا تقدر تشوف كل الفرق المسجلة، أعضاء كل فريق، وتحذف أي فريق تريده من الموقع.</p>
+              </div>
+            </div>
+
+            <div className="adminList adminTeamsList">
+              {adminTeams.map((team) => (
+                <div className="adminCard adminTeamCard" key={team.id}>
+                  <div className="adminCardHead">
+                    <div>
+                      <h3>{team.team_name}</h3>
+                      <span>القائد: {team.leader_name || "غير محدد"}</span>
+                    </div>
+                    <Shield />
+                  </div>
+
+                  <div className="infoGrid">
+                    <p><Users size={16} /> <b>الأعضاء:</b> {team.members_count || 0}/{team.max_members || "∞"}</p>
+                    <p><MessageSquare size={16} /> <b>تواصل:</b> {team.contact || "غير محدد"}</p>
+                    <p><Calendar size={16} /> <b>التاريخ:</b> {team.created_at ? new Date(team.created_at).toLocaleString("ar") : "غير محدد"}</p>
+                  </div>
+
+                  {team.description && <p className="desc">{team.description}</p>}
+
+                  <div className="adminTeamMembersBox">
+                    <h4>اللاعبين المنضمين</h4>
+                    {team.members?.length ? team.members.map((member) => (
+                      <div className="adminTeamMemberRow" key={member.id}>
+                        <span>
+                          <b>{member.player_name}</b>
+                          {member.nickname ? <small>اللقب: {member.nickname}</small> : null}
+                        </span>
+                        <em>{member.is_leader ? "قائد" : member.pubg_id || member.contact || "عضو"}</em>
+                      </div>
+                    )) : <div className="emptyMiniState">لا يوجد أعضاء داخل هذا الفريق</div>}
+                  </div>
+
+                  <div className="adminActionsRow">
+                    <button className="dangerBtn" onClick={() => deleteAdminTeam(team.id)}>حذف الفريق</button>
+                  </div>
+                </div>
+              ))}
+
+              {adminTeams.length === 0 && (
+                <div className="emptyState">لا توجد فرق مسجلة حالياً.</div>
+              )}
+            </div>
+          </>
+        )}
+
         {adminTab === "branding" && (
           <>
             <div className="adminTop">
               <div>
-                <h1>التحكم في لوجو الموقع</h1>
-                <p>غيّر لوجو الموقع من لوحة الإدارة، وسيتم تحديث لوجو الناف بار والفوتر وأيقونة المتصفح favicon تلقائياً.</p>
+                <h1>الإعدادات</h1>
+                <p>تحكم في لوجو الموقع وهوية اللون الرئيسية. اللون يتغير عند كل المستخدمين بنفس تصميم الموقع.</p>
               </div>
             </div>
 
@@ -2637,6 +2833,43 @@ function Admin() {
                 <div className="successMsg">
                   <CheckCircle size={20} />
                   {logoMessage}
+                </div>
+              )}
+            </form>
+
+            <form className="form themeControlForm" onSubmit={saveSiteTheme}>
+              <div className="memberImportInfo">
+                <Palette />
+                <div>
+                  <h3>هوية لون الموقع</h3>
+                  <p>اختار اللون الأساسي، وسيتم استبدال اللون الأحمر في الموقع كله بنفس التدرج والتوهج.</p>
+                </div>
+              </div>
+
+              <div className="themePickerRow">
+                <input
+                  type="color"
+                  value={themeColor}
+                  onChange={(e) => { setThemeColor(e.target.value); applySiteThemeColor(e.target.value); setThemeMessage(""); }}
+                  aria-label="اختيار لون الموقع"
+                />
+                <input
+                  value={themeColor}
+                  onChange={(e) => { setThemeColor(e.target.value); setThemeMessage(""); }}
+                  placeholder="#ff0000"
+                  dir="ltr"
+                />
+                <span style={{ background: themeColor }} />
+              </div>
+
+              <button className="mainBtn submitBtn" type="submit" disabled={savingTheme}>
+                {savingTheme ? "جاري حفظ اللون..." : "حفظ لون الموقع"}
+              </button>
+
+              {themeMessage && (
+                <div className={`successMsg ${/خطأ|فشل|صحيح/i.test(themeMessage) ? "errorMsg" : ""}`}>
+                  <CheckCircle size={20} />
+                  {themeMessage}
                 </div>
               )}
             </form>

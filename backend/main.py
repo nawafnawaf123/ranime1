@@ -437,6 +437,7 @@ def get_teams():
 def create_team(
     team_name: str = Form(...),
     leader_name: str = Form(...),
+    max_members: int = Form(4),
     contact: str = Form(""),
     description: str = Form(""),
 ):
@@ -449,6 +450,11 @@ def create_team(
         raise HTTPException(status_code=400, detail="اسم الفريق مطلوب")
     if not clean_leader:
         raise HTTPException(status_code=400, detail="اسم قائد الفريق مطلوب")
+
+    try:
+        clean_max_members = max(1, min(100, int(max_members or 4)))
+    except Exception:
+        raise HTTPException(status_code=400, detail="عدد أعضاء الفريق غير صحيح")
 
     try:
         existing = (
@@ -466,6 +472,7 @@ def create_team(
             "team_name": clean_name,
             "normalized_name": normalized_name,
             "leader_name": clean_leader,
+            "max_members": clean_max_members,
             "contact": contact.strip(),
             "description": description.strip(),
             "is_active": True,
@@ -477,6 +484,7 @@ def create_team(
         member_row = {
             "team_id": team.get("id"),
             "player_name": clean_leader,
+            "nickname": "قائد الفريق",
             "pubg_id": "",
             "contact": contact.strip(),
             "is_leader": True,
@@ -500,6 +508,7 @@ def create_team(
 def join_team(
     team_id: int,
     player_name: str = Form(...),
+    nickname: str = Form(""),
     pubg_id: str = Form(""),
     contact: str = Form(""),
 ):
@@ -509,9 +518,23 @@ def join_team(
         raise HTTPException(status_code=400, detail="اسم اللاعب مطلوب")
 
     try:
-        team_found = sb.table("teams").select("id, team_name").eq("id", team_id).eq("is_active", True).limit(1).execute()
+        team_found = sb.table("teams").select("id, team_name, max_members").eq("id", team_id).eq("is_active", True).limit(1).execute()
         if not team_found.data:
             raise HTTPException(status_code=404, detail="الفريق غير موجود")
+
+        team_row = team_found.data[0]
+        max_allowed = int(team_row.get("max_members") or 0)
+        if max_allowed > 0:
+            count_result = (
+                sb.table("team_members")
+                .select("id", count="exact")
+                .eq("team_id", team_id)
+                .eq("is_active", True)
+                .execute()
+            )
+            current_count = count_result.count if count_result.count is not None else 0
+            if current_count >= max_allowed:
+                raise HTTPException(status_code=409, detail="الفريق مكتمل ولا يمكن الانضمام حالياً")
 
         existing = (
             sb.table("team_members")
@@ -528,6 +551,7 @@ def join_team(
         row = {
             "team_id": team_id,
             "player_name": clean_player,
+            "nickname": str(nickname or "").strip(),
             "pubg_id": str(pubg_id or "").strip(),
             "contact": str(contact or "").strip(),
             "is_leader": False,
@@ -740,12 +764,14 @@ def delete_clan_member(member_id: int):
 @app.get("/api/site-settings")
 def get_site_settings():
     sb = get_supabase()
-    settings = {"logo_url": None}
+    settings = {"logo_url": None, "theme_color": "#ff0000"}
     try:
-        result = sb.table("site_settings").select("key, value").in_("key", ["site_logo_url"]).execute()
+        result = sb.table("site_settings").select("key, value").in_("key", ["site_logo_url", "site_theme_color"]).execute()
         for item in result.data or []:
             if item.get("key") == "site_logo_url":
                 settings["logo_url"] = item.get("value")
+            if item.get("key") == "site_theme_color":
+                settings["theme_color"] = item.get("value") or "#ff0000"
     except Exception:
         pass
     return settings
@@ -772,6 +798,24 @@ async def update_site_logo(logo: UploadFile = File(...)):
     except Exception as e:
         safe_remove_storage_file(public_url)
         raise HTTPException(status_code=500, detail=f"Site logo update failed: {e}")
+
+
+@app.post("/api/site-theme")
+def update_site_theme(theme_color: str = Form(...)):
+    sb = get_supabase()
+    clean_color = str(theme_color or "").strip()
+    import re
+    if not re.match(r"^#[0-9a-fA-F]{6}$", clean_color):
+        raise HTTPException(status_code=400, detail="لون الموقع غير صحيح")
+
+    rows = [
+        {"key": "site_theme_color", "value": clean_color, "updated_at": now_iso()},
+    ]
+    try:
+        sb.table("site_settings").upsert(rows, on_conflict="key").execute()
+        return {"success": True, "message": "تم تحديث لون الموقع للجميع", "theme_color": clean_color}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Site theme update failed: {e}")
 
 
 # =========================
