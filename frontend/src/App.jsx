@@ -2352,7 +2352,7 @@ function Admin() {
         <button className={adminTab === "videos" ? "active" : ""} onClick={() => setAdminTab("videos")}>إدارة فيديوهات الموقع</button>
         <button className={adminTab === "competitionVideos" ? "active" : ""} onClick={() => setAdminTab("competitionVideos")}>فيديوهات المسابقات</button>
         <button className={adminTab === "requests" ? "active" : ""} onClick={() => setAdminTab("requests")}>طلبات التصاميم</button>
-        <button className={adminTab === "teams" ? "active" : ""} onClick={() => setAdminTab("teams")}>الفرق</button>
+        <button className={adminTab === "teams" ? "active" : ""} onClick={() => setAdminTab("teams")}>فرق السكرمات</button>
         <button className={adminTab === "branding" ? "active" : ""} onClick={() => setAdminTab("branding")}>الإعدادات</button>
         <button className="softAdminBtn" onClick={loadAdminData}>تحديث الكل</button>
         <button className="softAdminBtn" onClick={() => go("/")}>فتح الموقع</button>
