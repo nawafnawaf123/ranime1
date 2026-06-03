@@ -725,6 +725,7 @@ function Home() {
       <Hero logoUrl={siteLogoUrl} />
       <ClanInfo />
       <Identity />
+      <TeamsSection />
       <Videos />
       <VideoRequestSection />
       <ApplySection
@@ -750,6 +751,7 @@ function Navbar({ logoUrl = logo }) {
     ["الرئيسية", "#top"],
     ["الكلان", "#clan"],
     ["أعضاء الكلان", "/members"],
+    ["الفرق", "#teams"],
     ["الفيديوهات", "#videos"],
     ["المسابقات", "#designs"],
     ["التقديم", "#apply"],
@@ -1144,6 +1146,304 @@ function Videos() {
         </div>
       )}
     </>
+  );
+}
+
+
+function normalizeTeamNameLocal(value = "") {
+  return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function TeamsSection() {
+  const [teams, setTeams] = useState([]);
+  const [loadingTeams, setLoadingTeams] = useState(true);
+  const [creatingTeam, setCreatingTeam] = useState(false);
+  const [joiningTeamId, setJoiningTeamId] = useState(null);
+  const [teamMessage, setTeamMessage] = useState("");
+  const [openJoinTeamId, setOpenJoinTeamId] = useState(null);
+  const [teamSearch, setTeamSearch] = useState("");
+  const [teamForm, setTeamForm] = useState({
+    team_name: "",
+    leader_name: "",
+    contact: "",
+    description: "",
+  });
+  const [joinForms, setJoinForms] = useState({});
+
+  async function loadTeams({ silent = false } = {}) {
+    if (!silent) setLoadingTeams(true);
+    try {
+      const cached = readCachedArray("rnm_cache_teams");
+      if (cached.length && !silent) setTeams(cached);
+
+      const json = await fetchJson("/api/teams");
+      const list = Array.isArray(json) ? json : [];
+      writeCachedArray("rnm_cache_teams", list);
+      setTeams(list);
+    } catch (error) {
+      console.warn("Teams load failed:", error);
+      if (!silent) {
+        const cached = readCachedArray("rnm_cache_teams");
+        if (cached.length) setTeams(cached);
+        else setTeamMessage("تعذر تحميل الفرق حالياً");
+      }
+    } finally {
+      if (!silent) setLoadingTeams(false);
+    }
+  }
+
+  useEffect(() => {
+    loadTeams();
+  }, []);
+
+  const filteredTeams = useMemo(() => {
+    const q = normalizeTeamNameLocal(teamSearch);
+    if (!q) return teams;
+    return teams.filter((team) => {
+      const name = normalizeTeamNameLocal(team.team_name);
+      const leader = normalizeTeamNameLocal(team.leader_name);
+      return name.includes(q) || leader.includes(q);
+    });
+  }, [teams, teamSearch]);
+
+  async function createTeam(e) {
+    e.preventDefault();
+    const cleanName = teamForm.team_name.trim();
+    const cleanLeader = teamForm.leader_name.trim();
+
+    if (!cleanName || !cleanLeader) {
+      setTeamMessage("اكتب اسم الفريق واسم القائد أولاً");
+      return;
+    }
+
+    const existsLocal = teams.some((team) => normalizeTeamNameLocal(team.team_name) === normalizeTeamNameLocal(cleanName));
+    if (existsLocal) {
+      setTeamMessage("اسم الفريق موجود مسبقاً، اختار اسم ثاني");
+      return;
+    }
+
+    const data = new FormData();
+    Object.entries(teamForm).forEach(([key, value]) => data.append(key, value));
+
+    setCreatingTeam(true);
+    setTeamMessage("جاري إنشاء الفريق...");
+
+    try {
+      const json = await postFormJson("/api/teams", data);
+      setTeamMessage(json.message || "تم إنشاء الفريق بنجاح");
+      if (json.success) {
+        setTeamForm({ team_name: "", leader_name: "", contact: "", description: "" });
+        await loadTeams({ silent: true });
+      }
+    } catch (error) {
+      setTeamMessage(error?.message || "تعذر إنشاء الفريق");
+    } finally {
+      setCreatingTeam(false);
+    }
+  }
+
+  function updateJoinForm(teamId, key, value) {
+    setJoinForms((previous) => ({
+      ...previous,
+      [teamId]: {
+        player_name: "",
+        pubg_id: "",
+        contact: "",
+        ...(previous[teamId] || {}),
+        [key]: value,
+      },
+    }));
+  }
+
+  async function joinTeam(teamId) {
+    const form = joinForms[teamId] || {};
+    const playerName = String(form.player_name || "").trim();
+
+    if (!playerName) {
+      setTeamMessage("اكتب اسم اللاعب قبل الانضمام");
+      return;
+    }
+
+    const data = new FormData();
+    data.append("player_name", playerName);
+    data.append("pubg_id", form.pubg_id || "");
+    data.append("contact", form.contact || "");
+
+    setJoiningTeamId(teamId);
+    setTeamMessage("جاري الانضمام للفريق...");
+
+    try {
+      const json = await postFormJson(`/api/teams/${teamId}/join`, data);
+      setTeamMessage(json.message || "تم الانضمام للفريق");
+      if (json.success) {
+        setJoinForms((previous) => ({ ...previous, [teamId]: { player_name: "", pubg_id: "", contact: "" } }));
+        setOpenJoinTeamId(null);
+        await loadTeams({ silent: true });
+      }
+    } catch (error) {
+      setTeamMessage(error?.message || "تعذر الانضمام للفريق");
+    } finally {
+      setJoiningTeamId(null);
+    }
+  }
+
+  return (
+    <section className="section teamsSection" id="teams">
+      <div className="sectionHead">
+        <span>RNM TEAMS</span>
+        <h2>قسم الفرق</h2>
+        <p>
+          سجّل فريقك باسم خاص، وبعدها أي لاعب يدخل الصفحة يقدر يشوف الفريق وينضم له مباشرة.
+          اسم الفريق لا يمكن يتكرر داخل النظام.
+        </p>
+      </div>
+
+      <div className="teamsLayout">
+        <form className="form teamCreateForm" onSubmit={createTeam}>
+          <div className="teamFormTitle">
+            <UserPlus />
+            <div>
+              <h3>تسجيل فريق جديد</h3>
+              <p>اكتب بيانات الفريق وسيظهر مباشرة في قائمة الفرق.</p>
+            </div>
+          </div>
+
+          <div className="inputGroup">
+            <input
+              value={teamForm.team_name}
+              onChange={(e) => setTeamForm({ ...teamForm, team_name: e.target.value })}
+              placeholder="اسم الفريق"
+            />
+          </div>
+
+          <div className="inputGroup">
+            <input
+              value={teamForm.leader_name}
+              onChange={(e) => setTeamForm({ ...teamForm, leader_name: e.target.value })}
+              placeholder="اسم قائد الفريق"
+            />
+          </div>
+
+          <div className="inputGroup">
+            <input
+              value={teamForm.contact}
+              onChange={(e) => setTeamForm({ ...teamForm, contact: e.target.value })}
+              placeholder="وسيلة تواصل اختياري"
+            />
+          </div>
+
+          <textarea
+            value={teamForm.description}
+            onChange={(e) => setTeamForm({ ...teamForm, description: e.target.value })}
+            placeholder="وصف الفريق / شروط الانضمام"
+          />
+
+          <button className="mainBtn submitBtn" type="submit" disabled={creatingTeam}>
+            {creatingTeam ? "جاري التسجيل..." : "تسجيل الفريق"}
+          </button>
+
+          {teamMessage && (
+            <div className={`successMsg teamsMsg ${/تعذر|موجود|خطأ|اكتب/i.test(teamMessage) ? "errorMsg" : ""}`}>
+              <CheckCircle size={18} />
+              {teamMessage}
+            </div>
+          )}
+        </form>
+
+        <div className="teamsListPanel">
+          <div className="teamsListTop">
+            <div>
+              <h3>الفرق المسجلة</h3>
+              <span>{teams.length} فريق</span>
+            </div>
+            <div className="searchBox teamsSearchBox">
+              <Search size={18} />
+              <input
+                value={teamSearch}
+                onChange={(e) => setTeamSearch(e.target.value)}
+                placeholder="ابحث عن فريق"
+              />
+            </div>
+          </div>
+
+          {loadingTeams ? (
+            <div className="emptyState">جاري تحميل الفرق...</div>
+          ) : filteredTeams.length ? (
+            <div className="teamsGrid">
+              {filteredTeams.map((team) => {
+                const joinForm = joinForms[team.id] || {};
+                const isOpen = openJoinTeamId === team.id;
+                return (
+                  <div className="teamCard" key={team.id}>
+                    <div className="teamCardHead">
+                      <div className="teamBadgeIcon"><Shield /></div>
+                      <div>
+                        <h3>{team.team_name}</h3>
+                        <span>القائد: {team.leader_name || "غير محدد"}</span>
+                      </div>
+                    </div>
+
+                    {team.description && <p className="teamDesc">{team.description}</p>}
+
+                    <div className="teamMetaGrid">
+                      <div><Users size={17} /><b>{team.members_count || 0}</b><span>عضو</span></div>
+                      <div><Trophy size={17} /><b>{team.contact ? "متاح" : "—"}</b><span>تواصل</span></div>
+                    </div>
+
+                    {team.members?.length > 0 && (
+                      <div className="teamMembersPreview">
+                        {team.members.slice(0, 5).map((member) => (
+                          <span key={member.id}>{member.player_name}</span>
+                        ))}
+                        {team.members.length > 5 && <span>+{team.members.length - 5}</span>}
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      className="ghostBtn teamJoinToggle"
+                      onClick={() => setOpenJoinTeamId(isOpen ? null : team.id)}
+                    >
+                      {isOpen ? "إغلاق" : "انضم للفريق"}
+                    </button>
+
+                    {isOpen && (
+                      <div className="joinTeamBox">
+                        <input
+                          value={joinForm.player_name || ""}
+                          onChange={(e) => updateJoinForm(team.id, "player_name", e.target.value)}
+                          placeholder="اسم اللاعب"
+                        />
+                        <input
+                          value={joinForm.pubg_id || ""}
+                          onChange={(e) => updateJoinForm(team.id, "pubg_id", e.target.value)}
+                          placeholder="PUBG ID اختياري"
+                        />
+                        <input
+                          value={joinForm.contact || ""}
+                          onChange={(e) => updateJoinForm(team.id, "contact", e.target.value)}
+                          placeholder="تواصل اختياري"
+                        />
+                        <button
+                          type="button"
+                          className="mainBtn"
+                          onClick={() => joinTeam(team.id)}
+                          disabled={joiningTeamId === team.id}
+                        >
+                          {joiningTeamId === team.id ? "جاري الانضمام..." : "تأكيد الانضمام"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="emptyState">لا توجد فرق حالياً، كن أول واحد يسجل فريقه.</div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 

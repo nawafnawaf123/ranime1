@@ -20,7 +20,6 @@ app.add_middleware(
 )
 
 
-
 @app.middleware("http")
 async def resilient_headers(request, call_next):
     try:
@@ -35,7 +34,6 @@ async def resilient_headers(request, call_next):
     response.headers["Pragma"] = "no-cache"
     response.headers["X-RNM-Backend"] = "online"
     return response
-
 
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
@@ -68,10 +66,8 @@ def get_supabase() -> Client:
 
 
 def storage_path_from_public_url(video_url: str | None) -> str | None:
-    """Extract applications/file.mp4 from a Supabase public storage URL."""
     if not video_url:
         return None
-
     try:
         parsed = urlparse(video_url)
         marker = f"/storage/v1/object/public/{SUPABASE_BUCKET}/"
@@ -105,23 +101,26 @@ CLAN_RANKS = {
 }
 
 RANK_ORDER_MAP = {"leader": 1, "co_leader": 2, "elite": 3, "member": 4}
-
 EXCEL_ALLOWED_EXTENSIONS = {".xlsx", ".xlsm", ".csv"}
+
+
+def now_iso() -> str:
+    return datetime.utcnow().isoformat()
 
 
 def normalize_rank(status: str | None) -> str:
     value = (status or "").strip().lower().replace("-", "_").replace(" ", "_")
-
     if value in {"leader", "president", "owner", "chief", "رئيس", "رئيس_الكلان"}:
         return "leader"
-
     if value in {"co_leader", "coleader", "co", "co_leadr", "كو_ليدر", "كوليدر"}:
         return "co_leader"
-
     if value in {"elite", "النخبة", "نخبة", "لاعب_نخبة"}:
         return "elite"
-
     return "member"
+
+
+def normalize_team_name(name: str | None) -> str:
+    return " ".join(str(name or "").strip().lower().split())
 
 
 def row_value(row: dict, possible_names: list[str]) -> str:
@@ -140,12 +139,10 @@ def row_value(row: dict, possible_names: list[str]) -> str:
 
 def parse_members_file(filename: str, content: bytes) -> list[dict]:
     ext = os.path.splitext(filename or "")[1].lower()
-
     if ext not in EXCEL_ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail="صيغة الملف غير مدعومة. استخدم xlsx أو xlsm أو csv")
 
     rows: list[dict] = []
-
     if ext == ".csv":
         text = content.decode("utf-8-sig", errors="ignore")
         reader = csv.DictReader(StringIO(text))
@@ -159,10 +156,8 @@ def parse_members_file(filename: str, content: bytes) -> list[dict]:
         workbook = load_workbook(BytesIO(content), read_only=True, data_only=True)
         sheet = workbook.active
         values = list(sheet.iter_rows(values_only=True))
-
         if not values:
             return []
-
         headers = [str(v).strip() if v is not None else "" for v in values[0]]
         for values_row in values[1:]:
             item = {}
@@ -174,19 +169,15 @@ def parse_members_file(filename: str, content: bytes) -> list[dict]:
 
     members: list[dict] = []
     seen: set[str] = set()
-
     for row in rows:
         player_name = row_value(row, ["Pubg Name", "PUBG Name", "player_name", "Player Name", "Name", "الاسم"])
         status = row_value(row, ["Status", "Rank", "clan_rank", "Clan Rank", "الرتبة", "الحالة"])
-
         if not player_name:
             continue
-
         key = player_name.strip().lower()
         if key in seen:
             continue
         seen.add(key)
-
         clan_rank = normalize_rank(status)
         members.append({
             "player_name": player_name.strip(),
@@ -202,16 +193,13 @@ def parse_members_file(filename: str, content: bytes) -> list[dict]:
             "clan_title": CLAN_RANKS[clan_rank],
             "rank_order": RANK_ORDER_MAP[clan_rank],
             "is_active": True,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": now_iso(),
         })
-
     return members
 
 
 async def upload_file_to_storage(file: UploadFile, folder: str, allowed_types: set[str], default_name: str) -> tuple[str, str]:
-    """Upload any allowed file to Supabase storage and return (public_url, storage_path)."""
     sb = get_supabase()
-
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="نوع الملف غير مدعوم")
 
@@ -269,17 +257,14 @@ def execute_with_retry(operation, label: str = "Supabase operation", attempts: i
 
 PRIZE_MARKER = "__RNM_PRIZE__:"
 
+
 def merge_prize_into_description(description: str = "", prize: str = "") -> str:
-    """Store winner prize inside description so it works even without adding a new DB column."""
     clean_description = str(description or "")
     clean_prize = str(prize or "").strip()
-
     if PRIZE_MARKER in clean_description:
         clean_description = clean_description.rsplit(PRIZE_MARKER, 1)[0].strip()
-
     if clean_prize:
         return f"{clean_description}\n{PRIZE_MARKER}{clean_prize}".strip()
-
     return clean_description.strip()
 
 
@@ -290,19 +275,18 @@ def root():
 
 @app.get("/api/ping")
 def ping():
-    return {"success": True, "backend": "awake", "time": datetime.utcnow().isoformat()}
+    return {"success": True, "backend": "awake", "time": now_iso()}
 
 
 @app.get("/api/health")
 def health_check():
-    """Quick deployment check for Vercel/Render/Supabase connection."""
     info = {
         "success": True,
         "backend": "running",
         "supabase_url_configured": bool(SUPABASE_URL),
         "supabase_key_configured": bool(SUPABASE_SERVICE_ROLE_KEY),
         "bucket": SUPABASE_BUCKET,
-        "time": datetime.utcnow().isoformat(),
+        "time": now_iso(),
         "tables": {},
     }
 
@@ -316,28 +300,27 @@ def health_check():
         "clan_members": "id",
         "video_requests": "id",
         "site_videos": "id",
-        # جدول site_settings عندك مبني على key/value وليس id
         "site_settings": "key",
+        "teams": "id",
+        "team_members": "id",
     }
 
     for table, column in health_tables.items():
         try:
             result = execute_with_retry(
-                lambda sb, table=table, column=column: (
-                    sb.table(table).select(column, count="exact").limit(1).execute()
-                ),
+                lambda sb, table=table, column=column: sb.table(table).select(column, count="exact").limit(1).execute(),
                 label=f"Health check {table}",
             )
-            info["tables"][table] = {
-                "ok": True,
-                "count": result.count if result.count is not None else 0,
-            }
+            info["tables"][table] = {"ok": True, "count": result.count if result.count is not None else 0}
         except Exception as e:
             info["success"] = False
             info["tables"][table] = {"ok": False, "error": str(e)}
-
     return info
 
+
+# =========================
+# APPLICATIONS
+# =========================
 
 @app.post("/api/apply")
 async def apply_to_clan(
@@ -354,7 +337,6 @@ async def apply_to_clan(
     sb = get_supabase()
     public_url, storage_path = await upload_video_to_storage(video, "applications")
     image_url, image_storage_path = await upload_image_to_storage(profile_image, "profile-images")
-
     row = {
         "player_name": player_name,
         "pubg_id": pubg_id,
@@ -368,20 +350,16 @@ async def apply_to_clan(
         "profile_image_url": image_url,
         "profile_image_storage_path": image_storage_path,
         "status": "pending",
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": now_iso(),
     }
-
     try:
         result = sb.table("applications").insert(row).execute()
         inserted = result.data[0] if result.data else row
     except Exception as e:
+        safe_remove_storage_file(public_url)
+        safe_remove_storage_file(image_url)
         raise HTTPException(status_code=500, detail=f"Database insert failed: {e}")
-
-    return {
-        "success": True,
-        "message": "تم رفع طلبك بنجاح، سيتم مراجعته من الإدارة.",
-        "application_id": inserted.get("id"),
-    }
+    return {"success": True, "message": "تم رفع طلبك بنجاح، سيتم مراجعته من الإدارة.", "application_id": inserted.get("id")}
 
 
 @app.get("/api/applications")
@@ -394,38 +372,195 @@ def get_applications():
 @app.delete("/api/applications/{application_id}")
 def delete_application(application_id: int):
     sb = get_supabase()
-
     try:
-        found = (
-            sb.table("applications")
-            .select("id, video_url, profile_image_url")
-            .eq("id", application_id)
-            .limit(1)
-            .execute()
-        )
+        found = sb.table("applications").select("id, video_url, profile_image_url").eq("id", application_id).limit(1).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database read failed: {e}")
-
     if not found.data:
         raise HTTPException(status_code=404, detail="طلب التقديم غير موجود")
-
-    video_url = found.data[0].get("video_url")
-    profile_image_url = found.data[0].get("profile_image_url")
-    for file_url in [video_url, profile_image_url]:
-        storage_path = storage_path_from_public_url(file_url)
-        if storage_path:
-            try:
-                sb.storage.from_(SUPABASE_BUCKET).remove([storage_path])
-            except Exception:
-                # لا نوقف حذف الطلب إذا فشل حذف الملف من التخزين
-                pass
-
+    for file_url in [found.data[0].get("video_url"), found.data[0].get("profile_image_url")]:
+        safe_remove_storage_file(file_url)
     try:
         sb.table("applications").delete().eq("id", application_id).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database delete failed: {e}")
-
     return {"success": True, "message": "تم حذف طلب التقديم بنجاح"}
+
+
+# =========================
+# TEAMS SECTION
+# =========================
+
+@app.get("/api/teams")
+def get_teams():
+    sb = get_supabase()
+    try:
+        teams_result = (
+            sb.table("teams")
+            .select("*")
+            .eq("is_active", True)
+            .order("id", desc=True)
+            .execute()
+        )
+        teams = teams_result.data or []
+        if not teams:
+            return []
+
+        team_ids = [team.get("id") for team in teams if team.get("id") is not None]
+        members_by_team: dict[int, list[dict]] = {int(team_id): [] for team_id in team_ids}
+
+        if team_ids:
+            members_result = (
+                sb.table("team_members")
+                .select("*")
+                .in_("team_id", team_ids)
+                .eq("is_active", True)
+                .order("id", desc=False)
+                .execute()
+            )
+            for member in members_result.data or []:
+                tid = member.get("team_id")
+                if tid in members_by_team:
+                    members_by_team[tid].append(member)
+
+        for team in teams:
+            tid = team.get("id")
+            members = members_by_team.get(tid, [])
+            team["members"] = members
+            team["members_count"] = len(members)
+        return teams
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Teams read failed: {e}")
+
+
+@app.post("/api/teams")
+def create_team(
+    team_name: str = Form(...),
+    leader_name: str = Form(...),
+    contact: str = Form(""),
+    description: str = Form(""),
+):
+    sb = get_supabase()
+    clean_name = " ".join(str(team_name or "").strip().split())
+    clean_leader = str(leader_name or "").strip()
+    normalized_name = normalize_team_name(clean_name)
+
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="اسم الفريق مطلوب")
+    if not clean_leader:
+        raise HTTPException(status_code=400, detail="اسم قائد الفريق مطلوب")
+
+    try:
+        existing = (
+            sb.table("teams")
+            .select("id")
+            .eq("normalized_name", normalized_name)
+            .eq("is_active", True)
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            raise HTTPException(status_code=409, detail="اسم الفريق موجود مسبقاً، اختار اسم ثاني")
+
+        row = {
+            "team_name": clean_name,
+            "normalized_name": normalized_name,
+            "leader_name": clean_leader,
+            "contact": contact.strip(),
+            "description": description.strip(),
+            "is_active": True,
+            "created_at": now_iso(),
+        }
+        result = sb.table("teams").insert(row).execute()
+        team = (result.data or [row])[0]
+
+        member_row = {
+            "team_id": team.get("id"),
+            "player_name": clean_leader,
+            "pubg_id": "",
+            "contact": contact.strip(),
+            "is_leader": True,
+            "is_active": True,
+            "created_at": now_iso(),
+        }
+        if team.get("id") is not None:
+            sb.table("team_members").insert(member_row).execute()
+
+        return {"success": True, "message": "تم تسجيل الفريق بنجاح", "team": team}
+    except HTTPException:
+        raise
+    except Exception as e:
+        message = str(e)
+        if "duplicate" in message.lower() or "unique" in message.lower():
+            raise HTTPException(status_code=409, detail="اسم الفريق موجود مسبقاً، اختار اسم ثاني")
+        raise HTTPException(status_code=500, detail=f"Team insert failed: {e}")
+
+
+@app.post("/api/teams/{team_id}/join")
+def join_team(
+    team_id: int,
+    player_name: str = Form(...),
+    pubg_id: str = Form(""),
+    contact: str = Form(""),
+):
+    sb = get_supabase()
+    clean_player = str(player_name or "").strip()
+    if not clean_player:
+        raise HTTPException(status_code=400, detail="اسم اللاعب مطلوب")
+
+    try:
+        team_found = sb.table("teams").select("id, team_name").eq("id", team_id).eq("is_active", True).limit(1).execute()
+        if not team_found.data:
+            raise HTTPException(status_code=404, detail="الفريق غير موجود")
+
+        existing = (
+            sb.table("team_members")
+            .select("id")
+            .eq("team_id", team_id)
+            .ilike("player_name", clean_player)
+            .eq("is_active", True)
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            raise HTTPException(status_code=409, detail="هذا اللاعب منضم لهذا الفريق مسبقاً")
+
+        row = {
+            "team_id": team_id,
+            "player_name": clean_player,
+            "pubg_id": str(pubg_id or "").strip(),
+            "contact": str(contact or "").strip(),
+            "is_leader": False,
+            "is_active": True,
+            "created_at": now_iso(),
+        }
+        result = sb.table("team_members").insert(row).execute()
+        return {"success": True, "message": "تم الانضمام للفريق بنجاح", "member": (result.data or [row])[0]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Join team failed: {e}")
+
+
+@app.delete("/api/teams/{team_id}")
+def delete_team(team_id: int):
+    sb = get_supabase()
+    try:
+        sb.table("teams").update({"is_active": False}).eq("id", team_id).execute()
+        sb.table("team_members").update({"is_active": False}).eq("team_id", team_id).execute()
+        return {"success": True, "message": "تم حذف الفريق"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Team delete failed: {e}")
+
+
+@app.delete("/api/team-members/{member_id}")
+def delete_team_member(member_id: int):
+    sb = get_supabase()
+    try:
+        sb.table("team_members").update({"is_active": False}).eq("id", member_id).execute()
+        return {"success": True, "message": "تم إزالة العضو من الفريق"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Team member delete failed: {e}")
 
 
 # =========================
@@ -436,54 +571,33 @@ def delete_application(application_id: int):
 def get_clan_members():
     sb = get_supabase()
     try:
-        result = (
-            sb.table("clan_members")
-            .select("*")
-            .eq("is_active", True)
-            .order("rank_order", desc=False)
-            .order("id", desc=False)
-            .execute()
-        )
+        result = sb.table("clan_members").select("*").eq("is_active", True).order("rank_order", desc=False).order("id", desc=False).execute()
         return result.data or []
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Clan members read failed: {e}")
 
 
-
-
 @app.post("/api/clan-members/import")
 async def import_clan_members(file: UploadFile = File(...)):
     sb = get_supabase()
-
     content = await file.read()
     members = parse_members_file(file.filename or "", content)
-
     if not members:
         raise HTTPException(status_code=400, detail="لم يتم العثور على أعضاء داخل الملف")
 
     try:
-        existing_result = (
-            sb.table("clan_members")
-            .select("id, player_name")
-            .execute()
-        )
+        existing_result = sb.table("clan_members").select("id, player_name").execute()
         existing = existing_result.data or []
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Clan members read failed: {e}")
 
-    existing_by_name = {
-        (item.get("player_name") or "").strip().lower(): item.get("id")
-        for item in existing
-        if item.get("player_name")
-    }
-
+    existing_by_name = {(item.get("player_name") or "").strip().lower(): item.get("id") for item in existing if item.get("player_name")}
     inserted_count = 0
     updated_count = 0
 
     for member in members:
         key = member["player_name"].strip().lower()
         current_id = existing_by_name.get(key)
-
         try:
             if current_id:
                 sb.table("clan_members").update({
@@ -502,32 +616,17 @@ async def import_clan_members(file: UploadFile = File(...)):
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Import failed for {member['player_name']}: {e}")
 
-    return {
-        "success": True,
-        "message": f"تم استيراد الأعضاء بنجاح: جديد {inserted_count} / تحديث {updated_count}",
-        "imported": inserted_count,
-        "updated": updated_count,
-        "total": len(members),
-    }
+    return {"success": True, "message": f"تم استيراد الأعضاء بنجاح: جديد {inserted_count} / تحديث {updated_count}", "imported": inserted_count, "updated": updated_count, "total": len(members)}
 
 
 @app.post("/api/clan-members")
-async def create_clan_member_manual(
-    player_name: str = Form(...),
-    clan_rank: str = Form("member"),
-    profile_image: UploadFile | None = File(None),
-):
+async def create_clan_member_manual(player_name: str = Form(...), clan_rank: str = Form("member"), profile_image: UploadFile | None = File(None)):
     sb = get_supabase()
-
     if clan_rank not in CLAN_RANKS:
         raise HTTPException(status_code=400, detail="رتبة العضو غير صحيحة")
-
     image_url = None
-    image_storage_path = None
-
     if profile_image is not None:
-        image_url, image_storage_path = await upload_image_to_storage(profile_image, "profile-images")
-
+        image_url, _ = await upload_image_to_storage(profile_image, "profile-images")
     row = {
         "application_id": None,
         "player_name": player_name.strip(),
@@ -543,9 +642,8 @@ async def create_clan_member_manual(
         "clan_title": CLAN_RANKS[clan_rank],
         "rank_order": RANK_ORDER_MAP[clan_rank],
         "is_active": True,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": now_iso(),
     }
-
     try:
         result = sb.table("clan_members").insert(row).execute()
         return {"success": True, "message": "تم إضافة العضو يدوياً بنجاح", "member": (result.data or [row])[0]}
@@ -556,26 +654,16 @@ async def create_clan_member_manual(
 
 
 @app.post("/api/applications/{application_id}/approve")
-def approve_application_as_member(
-    application_id: int,
-    clan_rank: str = Form("member"),
-    custom_title: str = Form(""),
-):
+def approve_application_as_member(application_id: int, clan_rank: str = Form("member"), custom_title: str = Form("")):
     sb = get_supabase()
-
     if clan_rank not in CLAN_RANKS:
         raise HTTPException(status_code=400, detail="رتبة العضو غير صحيحة")
-
-    rank_order_map = {"leader": 1, "co_leader": 2, "elite": 3, "member": 4}
-
     try:
         found = sb.table("applications").select("*").eq("id", application_id).limit(1).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Application read failed: {e}")
-
     if not found.data:
         raise HTTPException(status_code=404, detail="طلب التقديم غير موجود")
-
     app_row = found.data[0]
     row = {
         "application_id": application_id,
@@ -590,61 +678,40 @@ def approve_application_as_member(
         "profile_image_url": app_row.get("profile_image_url"),
         "clan_rank": clan_rank,
         "clan_title": custom_title or CLAN_RANKS[clan_rank],
-        "rank_order": rank_order_map[clan_rank],
+        "rank_order": RANK_ORDER_MAP[clan_rank],
         "is_active": True,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": now_iso(),
     }
-
     try:
         inserted = sb.table("clan_members").insert(row).execute()
-        sb.table("applications").update({"status": "approved", "reviewed_at": datetime.utcnow().isoformat()}).eq("id", application_id).execute()
+        sb.table("applications").update({"status": "approved", "reviewed_at": now_iso()}).eq("id", application_id).execute()
         return {"success": True, "message": "تم قبول اللاعب وإضافته إلى أعضاء الكلان", "member": (inserted.data or [row])[0]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Approve application failed: {e}")
 
 
 @app.put("/api/clan-members/{member_id}")
-async def update_clan_member(
-    member_id: int,
-    player_name: str | None = Form(None),
-    clan_rank: str = Form("member"),
-    custom_title: str = Form(""),
-    is_active: bool = Form(True),
-    profile_image: UploadFile | None = File(None),
-):
+async def update_clan_member(member_id: int, player_name: str | None = Form(None), clan_rank: str = Form("member"), custom_title: str = Form(""), is_active: bool = Form(True), profile_image: UploadFile | None = File(None)):
     sb = get_supabase()
-
     if clan_rank not in CLAN_RANKS:
         raise HTTPException(status_code=400, detail="رتبة العضو غير صحيحة")
-
     try:
         found = sb.table("clan_members").select("id, profile_image_url").eq("id", member_id).limit(1).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Clan member read failed: {e}")
-
     if not found.data:
         raise HTTPException(status_code=404, detail="عضو الكلان غير موجود")
-
-    updates = {
-        "clan_rank": clan_rank,
-        "clan_title": custom_title or CLAN_RANKS[clan_rank],
-        "rank_order": RANK_ORDER_MAP[clan_rank],
-        "is_active": is_active,
-    }
-
+    updates = {"clan_rank": clan_rank, "clan_title": custom_title or CLAN_RANKS[clan_rank], "rank_order": RANK_ORDER_MAP[clan_rank], "is_active": is_active}
     clean_player_name = (player_name or "").strip()
     if player_name is not None:
         if not clean_player_name:
             raise HTTPException(status_code=400, detail="اسم العضو مطلوب")
         updates["player_name"] = clean_player_name
-
     old_image_url = found.data[0].get("profile_image_url")
     new_image_url = None
-
     if profile_image is not None:
-        new_image_url, _image_storage_path = await upload_image_to_storage(profile_image, "profile-images")
+        new_image_url, _ = await upload_image_to_storage(profile_image, "profile-images")
         updates["profile_image_url"] = new_image_url
-
     try:
         result = sb.table("clan_members").update(updates).eq("id", member_id).execute()
         if new_image_url and old_image_url:
@@ -666,7 +733,6 @@ def delete_clan_member(member_id: int):
         raise HTTPException(status_code=500, detail=f"Clan member delete failed: {e}")
 
 
-
 # =========================
 # SITE BRANDING / LOGO
 # =========================
@@ -675,21 +741,13 @@ def delete_clan_member(member_id: int):
 def get_site_settings():
     sb = get_supabase()
     settings = {"logo_url": None}
-
     try:
-        result = (
-            sb.table("site_settings")
-            .select("key, value")
-            .in_("key", ["site_logo_url"])
-            .execute()
-        )
+        result = sb.table("site_settings").select("key, value").in_("key", ["site_logo_url"]).execute()
         for item in result.data or []:
             if item.get("key") == "site_logo_url":
                 settings["logo_url"] = item.get("value")
     except Exception:
-        # إذا لم يكن جدول الإعدادات موجوداً لا نكسر الموقع، ويظهر اللوجو الاحتياطي.
         pass
-
     return settings
 
 
@@ -697,33 +755,20 @@ def get_site_settings():
 async def update_site_logo(logo: UploadFile = File(...)):
     sb = get_supabase()
     public_url, storage_path = await upload_image_to_storage(logo, "site-logo")
-
     try:
-        old_settings = (
-            sb.table("site_settings")
-            .select("key, value")
-            .eq("key", "site_logo_url")
-            .limit(1)
-            .execute()
-        )
+        old_settings = sb.table("site_settings").select("key, value").eq("key", "site_logo_url").limit(1).execute()
         old_logo_url = (old_settings.data or [{}])[0].get("value")
     except Exception:
         old_logo_url = None
-
     rows = [
-        {"key": "site_logo_url", "value": public_url, "updated_at": datetime.utcnow().isoformat()},
-        {"key": "site_logo_storage_path", "value": storage_path, "updated_at": datetime.utcnow().isoformat()},
+        {"key": "site_logo_url", "value": public_url, "updated_at": now_iso()},
+        {"key": "site_logo_storage_path", "value": storage_path, "updated_at": now_iso()},
     ]
-
     try:
         sb.table("site_settings").upsert(rows, on_conflict="key").execute()
         if old_logo_url and old_logo_url != public_url:
             safe_remove_storage_file(old_logo_url)
-        return {
-            "success": True,
-            "message": "تم تحديث لوجو الموقع والـ favicon بنجاح",
-            "logo_url": public_url,
-        }
+        return {"success": True, "message": "تم تحديث لوجو الموقع والـ favicon بنجاح", "logo_url": public_url}
     except Exception as e:
         safe_remove_storage_file(public_url)
         raise HTTPException(status_code=500, detail=f"Site logo update failed: {e}")
@@ -737,40 +782,17 @@ async def update_site_logo(logo: UploadFile = File(...)):
 def get_site_videos():
     sb = get_supabase()
     try:
-        result = (
-            sb.table("site_videos")
-            .select("*")
-            .eq("is_active", True)
-            .order("slot", desc=False)
-            .order("id", desc=False)
-            .execute()
-        )
+        result = sb.table("site_videos").select("*").eq("is_active", True).order("slot", desc=False).order("id", desc=False).execute()
         return result.data or []
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Videos read failed: {e}")
 
 
 @app.post("/api/site-videos")
-async def create_site_video(
-    title: str = Form(...),
-    description: str = Form(""),
-    slot: int = Form(1),
-    prize: str = Form(""),
-    video: UploadFile = File(...),
-):
+async def create_site_video(title: str = Form(...), description: str = Form(""), slot: int = Form(1), prize: str = Form(""), video: UploadFile = File(...)):
     sb = get_supabase()
     public_url, storage_path = await upload_video_to_storage(video, "site-videos")
-
-    row = {
-        "title": title,
-        "description": merge_prize_into_description(description, prize),
-        "slot": slot,
-        "video_url": public_url,
-        "storage_path": storage_path,
-        "is_active": True,
-        "created_at": datetime.utcnow().isoformat(),
-    }
-
+    row = {"title": title, "description": merge_prize_into_description(description, prize), "slot": slot, "video_url": public_url, "storage_path": storage_path, "is_active": True, "created_at": now_iso()}
     try:
         result = sb.table("site_videos").insert(row).execute()
         return {"success": True, "message": "تم إضافة الفيديو بنجاح", "video": (result.data or [row])[0]}
@@ -780,37 +802,20 @@ async def create_site_video(
 
 
 @app.put("/api/site-videos/{video_id}")
-async def update_site_video(
-    video_id: int,
-    title: str = Form(...),
-    description: str = Form(""),
-    slot: int = Form(1),
-    prize: str = Form(""),
-    video: UploadFile | None = File(None),
-):
+async def update_site_video(video_id: int, title: str = Form(...), description: str = Form(""), slot: int = Form(1), prize: str = Form(""), video: UploadFile | None = File(None)):
     sb = get_supabase()
-
     try:
         found = sb.table("site_videos").select("*").eq("id", video_id).limit(1).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Video read failed: {e}")
-
     if not found.data:
         raise HTTPException(status_code=404, detail="الفيديو غير موجود")
-
-    updates = {
-        "title": title,
-        "description": merge_prize_into_description(description, prize),
-        "slot": slot,
-    }
-
+    updates = {"title": title, "description": merge_prize_into_description(description, prize), "slot": slot}
     old_video_url = found.data[0].get("video_url")
-
     if video is not None:
         public_url, storage_path = await upload_video_to_storage(video, "site-videos")
         updates["video_url"] = public_url
         updates["storage_path"] = storage_path
-
     try:
         if slot in {1, 2, 3}:
             sb.table("site_videos").update({"slot": 99}).eq("slot", slot).neq("id", video_id).execute()
@@ -828,17 +833,13 @@ async def update_site_video(
 @app.delete("/api/site-videos/{video_id}")
 def delete_site_video(video_id: int):
     sb = get_supabase()
-
     try:
         found = sb.table("site_videos").select("id, video_url").eq("id", video_id).limit(1).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Video read failed: {e}")
-
     if not found.data:
         raise HTTPException(status_code=404, detail="الفيديو غير موجود")
-
     safe_remove_storage_file(found.data[0].get("video_url"))
-
     try:
         sb.table("site_videos").delete().eq("id", video_id).execute()
         return {"success": True, "message": "تم حذف الفيديو"}
@@ -851,27 +852,10 @@ def delete_site_video(video_id: int):
 # =========================
 
 @app.post("/api/video-requests")
-async def create_video_request(
-    visitor_name: str = Form(...),
-    contact: str = Form(""),
-    title: str = Form(...),
-    description: str = Form(""),
-    video: UploadFile = File(...),
-):
+async def create_video_request(visitor_name: str = Form(...), contact: str = Form(""), title: str = Form(...), description: str = Form(""), video: UploadFile = File(...)):
     sb = get_supabase()
     public_url, storage_path = await upload_video_to_storage(video, "video-requests")
-
-    row = {
-        "visitor_name": visitor_name,
-        "contact": contact,
-        "title": title,
-        "description": description,
-        "video_url": public_url,
-        "storage_path": storage_path,
-        "status": "pending",
-        "created_at": datetime.utcnow().isoformat(),
-    }
-
+    row = {"visitor_name": visitor_name, "contact": contact, "title": title, "description": description, "video_url": public_url, "storage_path": storage_path, "status": "pending", "created_at": now_iso()}
     try:
         result = sb.table("video_requests").insert(row).execute()
         return {"success": True, "message": "تم إرسال طلب الفيديو للإدارة", "request": (result.data or [row])[0]}
@@ -883,7 +867,6 @@ async def create_video_request(
 @app.get("/api/video-requests")
 def get_video_requests(status: str | None = None):
     sb = get_supabase()
-
     try:
         query = sb.table("video_requests").select("*")
         if status:
@@ -897,31 +880,16 @@ def get_video_requests(status: str | None = None):
 @app.post("/api/video-requests/{request_id}/approve")
 def approve_video_request(request_id: int):
     sb = get_supabase()
-
     try:
         found = sb.table("video_requests").select("*").eq("id", request_id).limit(1).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Video request read failed: {e}")
-
     if not found.data:
         raise HTTPException(status_code=404, detail="طلب الفيديو غير موجود")
-
     req = found.data[0]
-
     try:
-        sb.table("video_requests").update(
-            {"status": "approved", "reviewed_at": datetime.utcnow().isoformat()}
-        ).eq("id", request_id).execute()
-
-        design_row = {
-            "title": req.get("title") or "تصميم جديد",
-            "description": req.get("description") or "",
-            "slot": 99,
-            "video_url": req.get("video_url"),
-            "storage_path": req.get("storage_path"),
-            "is_active": True,
-            "created_at": datetime.utcnow().isoformat(),
-        }
+        sb.table("video_requests").update({"status": "approved", "reviewed_at": now_iso()}).eq("id", request_id).execute()
+        design_row = {"title": req.get("title") or "تصميم جديد", "description": req.get("description") or "", "slot": 99, "video_url": req.get("video_url"), "storage_path": req.get("storage_path"), "is_active": True, "created_at": now_iso()}
         inserted = sb.table("site_videos").insert(design_row).execute()
         return {"success": True, "message": "تم قبول الفيديو ونشره في قسم التصاميم", "video": (inserted.data or [design_row])[0]}
     except Exception as e:
@@ -931,21 +899,15 @@ def approve_video_request(request_id: int):
 @app.post("/api/video-requests/{request_id}/reject")
 def reject_video_request(request_id: int):
     sb = get_supabase()
-
     try:
         found = sb.table("video_requests").select("*").eq("id", request_id).limit(1).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Video request read failed: {e}")
-
     if not found.data:
         raise HTTPException(status_code=404, detail="طلب الفيديو غير موجود")
-
     safe_remove_storage_file(found.data[0].get("video_url"))
-
     try:
-        sb.table("video_requests").update(
-            {"status": "rejected", "reviewed_at": datetime.utcnow().isoformat()}
-        ).eq("id", request_id).execute()
+        sb.table("video_requests").update({"status": "rejected", "reviewed_at": now_iso()}).eq("id", request_id).execute()
         return {"success": True, "message": "تم رفض طلب الفيديو"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Video request reject failed: {e}")
@@ -954,22 +916,15 @@ def reject_video_request(request_id: int):
 @app.delete("/api/video-requests/{request_id}")
 def delete_video_request(request_id: int):
     sb = get_supabase()
-
     try:
         found = sb.table("video_requests").select("*").eq("id", request_id).limit(1).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Video request read failed: {e}")
-
     if not found.data:
-        raise HTTPException(status_code=404, detail="طلب الفيديو غير موجود")
-
+        raise HTTPException(status_code=404, detail="طلب التصميم غير موجود")
     req = found.data[0]
-    status = req.get("status")
-
-    # إذا كان الطلب منشوراً، لا نحذف ملف التخزين هنا لأن التصميم المنشور في site_videos يستخدم نفس الرابط.
-    if status != "approved":
+    if req.get("status") != "approved":
         safe_remove_storage_file(req.get("video_url"))
-
     try:
         sb.table("video_requests").delete().eq("id", request_id).execute()
         return {"success": True, "message": "تم حذف طلب التصميم"}

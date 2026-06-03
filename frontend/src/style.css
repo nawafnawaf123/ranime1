@@ -4310,3 +4310,256 @@ body:has(.adminDashboard) {
     min-width: 100%;
   }
 }
+
+/* TEAMS SECTION */
+.teamsSection {
+  scroll-margin-top: 95px;
+}
+
+.teamsLayout {
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  gap: 25px;
+  align-items: start;
+}
+
+.teamCreateForm {
+  position: sticky;
+  top: 105px;
+}
+
+.teamFormTitle,
+.teamsListTop,
+.teamCardHead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.teamFormTitle {
+  grid-column: 1 / -1;
+  padding: 10px 4px 4px;
+}
+
+.teamFormTitle svg {
+  width: 46px;
+  height: 46px;
+  color: #ff3030;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(255, 0, 0, 0.12);
+  border: 1px solid rgba(255, 0, 0, 0.28);
+}
+
+.teamFormTitle h3,
+.teamsListTop h3 {
+  margin: 0;
+  font-size: 26px;
+  color: #fff;
+}
+
+.teamFormTitle p,
+.teamsListTop span {
+  margin: 4px 0 0;
+  color: #aaa;
+}
+
+.teamsMsg.errorMsg {
+  color: #ffd0d0;
+  background: rgba(255, 0, 0, 0.1);
+  border-color: rgba(255, 0, 0, 0.35);
+}
+
+.teamsListPanel {
+  position: relative;
+  overflow: hidden;
+  padding: 26px;
+  border-radius: 30px;
+  background:
+    linear-gradient(145deg, rgba(255, 0, 0, 0.1), rgba(255, 255, 255, 0.025)),
+    rgba(8, 8, 8, 0.78);
+  border: 1px solid rgba(255, 0, 0, 0.25);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.32);
+}
+
+.teamsListPanel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 18%;
+  left: 18%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, red, transparent);
+}
+
+.teamsListTop {
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.teamsSearchBox {
+  width: min(310px, 100%);
+  min-height: 52px;
+}
+
+.teamsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.teamCard {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  padding: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 0, 0, 0.2), transparent 42%),
+    rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 0, 0, 0.22);
+  transition: 0.25s;
+}
+
+.teamCard:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 0, 0, 0.48);
+  box-shadow: 0 18px 44px rgba(255, 0, 0, 0.12);
+}
+
+.teamBadgeIcon {
+  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  color: #ff3030;
+  background: rgba(255, 0, 0, 0.12);
+  border: 1px solid rgba(255, 0, 0, 0.32);
+  box-shadow: inset 0 0 20px rgba(255, 0, 0, 0.1);
+}
+
+.teamBadgeIcon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.teamCard h3 {
+  margin: 0;
+  font-size: 24px;
+  color: #fff;
+}
+
+.teamCardHead span,
+.teamDesc {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.teamDesc {
+  line-height: 1.8;
+  margin: 16px 0;
+  padding: 13px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.teamMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.teamMetaGrid div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 11px;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 0, 0, 0.15);
+}
+
+.teamMetaGrid svg {
+  color: #ff3030;
+}
+
+.teamMetaGrid b {
+  color: #fff;
+}
+
+.teamMetaGrid span {
+  color: #999;
+  font-size: 13px;
+}
+
+.teamMembersPreview {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.teamMembersPreview span {
+  padding: 7px 11px;
+  border-radius: 999px;
+  color: #ffdede;
+  background: rgba(255, 0, 0, 0.09);
+  border: 1px solid rgba(255, 0, 0, 0.22);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.teamJoinToggle {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.joinTeamBox {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 0, 0, 0.18);
+}
+
+.joinTeamBox input {
+  padding: 13px 14px;
+  border-radius: 15px;
+}
+
+.joinTeamBox .mainBtn {
+  border: 0;
+}
+
+@media (max-width: 1000px) {
+  .teamsLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .teamCreateForm {
+    position: relative;
+    top: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .teamsListTop {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .teamsSearchBox {
+    width: 100%;
+  }
+
+  .teamsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .teamCard {
+    padding: 18px;
+  }
+}
